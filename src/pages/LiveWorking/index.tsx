@@ -62,13 +62,21 @@ const LiveWorking = () => {
     null
   );
 
+  const getStatusMatch = (ticketStatus: string, filter: string): boolean => {
+    if (filter === "all") return true;
+    if (filter === "pending") {
+      return ticketStatus === "draft" || ticketStatus === "approved";
+    }
+    return ticketStatus === filter;
+  };
+
   const filteredTickets = liveWorkingTickets.filter((ticket) => {
     const matchSearch =
       ticket.ticketNo.includes(searchText) ||
       ticket.lineName.includes(searchText) ||
       ticket.workLeader.includes(searchText) ||
       ticket.workType.includes(searchText);
-    const matchStatus = statusFilter === "all" || ticket.status === statusFilter;
+    const matchStatus = getStatusMatch(ticket.status, statusFilter);
     return matchSearch && matchStatus;
   });
 
@@ -162,7 +170,7 @@ const LiveWorking = () => {
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div
-          className="card p-4 cursor-pointer transition-all hover:shadow-card-hover"
+          className={`card p-4 cursor-pointer transition-all hover:shadow-card-hover ${statusFilter === "all" ? "ring-2 ring-primary-400" : ""}`}
           onClick={() => setStatusFilter("all")}
         >
           <div className="flex items-center justify-between">
@@ -179,8 +187,8 @@ const LiveWorking = () => {
         </div>
 
         <div
-          className="card p-4 cursor-pointer transition-all hover:shadow-card-hover"
-          onClick={() => setStatusFilter("approved")}
+          className={`card p-4 cursor-pointer transition-all hover:shadow-card-hover ${statusFilter === "pending" ? "ring-2 ring-warning-400" : ""}`}
+          onClick={() => setStatusFilter("pending")}
         >
           <div className="flex items-center justify-between">
             <div>
@@ -196,7 +204,7 @@ const LiveWorking = () => {
         </div>
 
         <div
-          className="card p-4 cursor-pointer transition-all hover:shadow-card-hover"
+          className={`card p-4 cursor-pointer transition-all hover:shadow-card-hover ${statusFilter === "in_progress" ? "ring-2 ring-primary-400" : ""}`}
           onClick={() => setStatusFilter("in_progress")}
         >
           <div className="flex items-center justify-between">
@@ -213,7 +221,7 @@ const LiveWorking = () => {
         </div>
 
         <div
-          className="card p-4 cursor-pointer transition-all hover:shadow-card-hover"
+          className={`card p-4 cursor-pointer transition-all hover:shadow-card-hover ${statusFilter === "completed" ? "ring-2 ring-success-400" : ""}`}
           onClick={() => setStatusFilter("completed")}
         >
           <div className="flex items-center justify-between">
@@ -252,6 +260,7 @@ const LiveWorking = () => {
               className="h-10 px-3 rounded-lg border border-neutral-200 text-sm bg-white focus:outline-none focus:border-primary-400"
             >
               <option value="all">全部状态</option>
+              <option value="pending">待执行</option>
               <option value="draft">草稿</option>
               <option value="approved">已批准</option>
               <option value="in_progress">作业中</option>

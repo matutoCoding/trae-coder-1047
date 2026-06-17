@@ -173,18 +173,25 @@ const Statistics = () => {
     return "低";
   };
 
+  const filteredHazards = useMemo(() => {
+    return channelHazards.filter((h) => {
+      if (filterLine && h.lineName !== filterLine) return false;
+      if (filterType && h.hazardType !== filterType) return false;
+      if (filterLevel && h.hazardLevel !== filterLevel) return false;
+      if (filterStatus && h.status !== filterStatus) return false;
+      return true;
+    });
+  }, [filterLine, filterType, filterLevel, filterStatus]);
+
   const governanceStats = useMemo(() => {
-    const total = channelHazards.length;
-    const pending = channelHazards.filter((h) => h.status === "pending").length;
-    const processing = channelHazards.filter(
-      (h) => h.status === "processing"
-    ).length;
-    const resolved = channelHazards.filter((h) => h.status === "resolved").length;
-    const high = channelHazards.filter((h) => h.hazardLevel === "high").length;
-    const medium = channelHazards.filter(
-      (h) => h.hazardLevel === "medium"
-    ).length;
-    const low = channelHazards.filter((h) => h.hazardLevel === "low").length;
+    const data = filteredHazards;
+    const total = data.length;
+    const pending = data.filter((h) => h.status === "pending").length;
+    const processing = data.filter((h) => h.status === "processing").length;
+    const resolved = data.filter((h) => h.status === "resolved").length;
+    const high = data.filter((h) => h.hazardLevel === "high").length;
+    const medium = data.filter((h) => h.hazardLevel === "medium").length;
+    const low = data.filter((h) => h.hazardLevel === "low").length;
 
     return {
       total,
@@ -196,7 +203,7 @@ const Statistics = () => {
       low,
       rate: total > 0 ? Math.round((resolved / total) * 100) : 0,
     };
-  }, []);
+  }, [filteredHazards]);
 
   const lineHazardData = useMemo(() => {
     const lineMap: Record<string, { total: number; resolved: number; pending: number; processing: number }> = {};
@@ -242,10 +249,11 @@ const Statistics = () => {
     const levels = ["high", "medium", "low"];
     const statuses = ["pending", "processing", "resolved"];
     const result: Array<{ level: string; status: string; count: number }> = [];
+    const data = filteredHazards;
 
     levels.forEach((level) => {
       statuses.forEach((status) => {
-        const count = channelHazards.filter(
+        const count = data.filter(
           (h) => h.hazardLevel === level && h.status === status
         ).length;
         result.push({
@@ -257,17 +265,7 @@ const Statistics = () => {
     });
 
     return result;
-  }, []);
-
-  const filteredHazards = useMemo(() => {
-    return channelHazards.filter((h) => {
-      if (filterLine && h.lineName !== filterLine) return false;
-      if (filterType && h.hazardType !== filterType) return false;
-      if (filterLevel && h.hazardLevel !== filterLevel) return false;
-      if (filterStatus && h.status !== filterStatus) return false;
-      return true;
-    });
-  }, [filterLine, filterType, filterLevel, filterStatus]);
+  }, [filteredHazards]);
 
   const activeFiltersCount = [
     filterLine,

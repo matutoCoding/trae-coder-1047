@@ -177,6 +177,7 @@ export interface ChannelHazard {
   distance: number;
   status: "pending" | "processing" | "resolved";
   foundDate: string;
+  plannedDate?: string;
   handler?: string;
 }
 
