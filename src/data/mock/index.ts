@@ -594,7 +594,7 @@ export const droneMissions: DroneMission[] = [
     lineName: "220kV朝阳线",
     flightDate: "2024-06-14",
     pilot: "陈操作员",
-    status: "in_progress",
+    status: "flying",
     flightDuration: 120,
     photoCount: 680,
     videoCount: 5,
