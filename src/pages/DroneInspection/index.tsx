@@ -13,26 +13,34 @@ import {
   PlayCircle,
   Thermometer,
   Zap,
-  Eye,
   ArrowRight,
   Image as ImageIcon,
   Activity,
+  X,
 } from "lucide-react";
 import { droneMissions, infraredRecords, insulatorDetections } from "@/data/mock";
 import type { DroneMission } from "@/data/types";
 
-const statusMap = {
-  pending: { label: "待执行", className: "default", icon: Clock },
-  in_progress: { label: "进行中", className: "info", icon: PlayCircle },
+const statusMap: Record<
+  string,
+  { label: string; className: string; icon: any }
+> = {
+  planned: { label: "待执行", className: "default", icon: Clock },
+  flying: { label: "进行中", className: "info", icon: PlayCircle },
   completed: { label: "已完成", className: "success", icon: CheckCircle },
-  failed: { label: "执行失败", className: "danger", icon: Activity },
+  cancelled: { label: "已取消", className: "danger", icon: Activity },
 };
 
-const typeMap = {
-  routine: { label: "例行航巡", className: "info" },
-  infrared: { label: "红外测温", className: "warning" },
-  insulator: { label: "绝缘子检测", className: "success" },
-  emergency: { label: "应急巡检", className: "danger" },
+const getMissionType = (
+  name: string
+): { label: string; className: string } => {
+  if (name.includes("红外"))
+    return { label: "红外测温", className: "warning" };
+  if (name.includes("绝缘子"))
+    return { label: "绝缘子检测", className: "success" };
+  if (name.includes("隐患") || name.includes("排查"))
+    return { label: "隐患排查", className: "danger" };
+  return { label: "例行航巡", className: "info" };
 };
 
 const DroneInspection = () => {
@@ -40,12 +48,14 @@ const DroneInspection = () => {
     "missions" | "infrared" | "insulator"
   >("missions");
   const [searchText, setSearchText] = useState("");
-  const [selectedMission, setSelectedMission] = useState<DroneMission | null>(null);
+  const [selectedMission, setSelectedMission] = useState<DroneMission | null>(
+    null
+  );
 
   const filteredMissions = droneMissions.filter(
     (mission) =>
       mission.missionName.includes(searchText) ||
-      mission.operator.includes(searchText)
+      mission.pilot.includes(searchText)
   );
 
   const handleViewDetail = (mission: DroneMission) => {
@@ -87,13 +97,18 @@ const DroneInspection = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-neutral-500 mb-1">红外测温点</p>
-              <p className="text-2xl font-bold text-warning-600">842</p>
+              <p className="text-2xl font-bold text-warning-600">
+                {infraredRecords.length}
+              </p>
             </div>
             <div className="w-10 h-10 rounded-lg bg-warning-50 flex items-center justify-center">
               <Thermometer className="w-5 h-5 text-warning-500" />
             </div>
           </div>
-          <p className="text-xs text-neutral-500 mt-2">异常点 23 处</p>
+          <p className="text-xs text-neutral-500 mt-2">
+            异常点{" "}
+            {infraredRecords.filter((r) => r.level !== "normal").length} 处
+          </p>
         </div>
 
         <div className="card p-4">
@@ -101,14 +116,18 @@ const DroneInspection = () => {
             <div>
               <p className="text-sm text-neutral-500 mb-1">绝缘子检测</p>
               <p className="text-2xl font-bold text-danger-600">
-                2,340<span className="text-sm font-normal">片</span>
+                {insulatorDetections.reduce((s, d) => s + d.totalCount, 0)}
+                <span className="text-sm font-normal">片</span>
               </p>
             </div>
             <div className="w-10 h-10 rounded-lg bg-danger-50 flex items-center justify-center">
               <Zap className="w-5 h-5 text-danger-500" />
             </div>
           </div>
-          <p className="text-xs text-danger-600 mt-2">缺陷 18 片</p>
+          <p className="text-xs text-danger-600 mt-2">
+            缺陷 {insulatorDetections.reduce((s, d) => s + d.defectCount, 0)}{" "}
+            片
+          </p>
         </div>
       </div>
 
@@ -177,9 +196,10 @@ const DroneInspection = () => {
       {activeTab === "missions" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {filteredMissions.map((mission) => {
-            const statusInfo = statusMap[mission.status];
-            const typeInfo = typeMap[mission.missionType];
-            const StatusIcon = statusInfo?.icon || Clock;
+            const statusInfo =
+              statusMap[mission.status] || statusMap.planned;
+            const typeInfo = getMissionType(mission.missionName);
+            const StatusIcon = statusInfo.icon;
 
             return (
               <div
@@ -197,11 +217,11 @@ const DroneInspection = () => {
                         {mission.missionName}
                       </h4>
                       <div className="flex items-center gap-2">
-                        <span className={`status-tag ${typeInfo?.className}`}>
-                          {typeInfo?.label}
+                        <span className={`status-tag ${typeInfo.className}`}>
+                          {typeInfo.label}
                         </span>
-                        <span className={`status-tag ${statusInfo?.className}`}>
-                          {statusInfo?.label}
+                        <span className={`status-tag ${statusInfo.className}`}>
+                          {statusInfo.label}
                         </span>
                       </div>
                     </div>
@@ -210,7 +230,7 @@ const DroneInspection = () => {
                     className={`w-5 h-5 ${
                       mission.status === "completed"
                         ? "text-success-500"
-                        : mission.status === "in_progress"
+                        : mission.status === "flying"
                         ? "text-primary-500"
                         : "text-neutral-400"
                     }`}
@@ -220,11 +240,11 @@ const DroneInspection = () => {
                 <div className="space-y-2 mb-4 text-sm">
                   <div className="flex items-center gap-2 text-neutral-500">
                     <User className="w-4 h-4" />
-                    <span>操作员：{mission.operator}</span>
+                    <span>操作员：{mission.pilot}</span>
                   </div>
                   <div className="flex items-center gap-2 text-neutral-500">
                     <Calendar className="w-4 h-4" />
-                    <span>执行时间：{mission.scheduledDate}</span>
+                    <span>执行时间：{mission.flightDate}</span>
                   </div>
                   <div className="flex items-center gap-2 text-neutral-500">
                     <MapPin className="w-4 h-4" />
@@ -243,16 +263,30 @@ const DroneInspection = () => {
                       <span>{mission.photoCount}张</span>
                     </div>
                   </div>
-                  <button className="text-primary-500 hover:text-primary-600 text-sm flex items-center gap-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleViewDetail(mission);
+                    }}
+                    className="text-primary-500 hover:text-primary-600 text-sm flex items-center gap-1"
+                  >
                     查看详情
                     <ArrowRight className="w-3 h-3" />
                   </button>
                 </div>
 
-                {mission.status === "in_progress" && (
+                {mission.status === "flying" && (
                   <div className="flex items-center justify-end gap-2 mt-4">
-                    <button className="btn btn-default btn-sm">查看画面</button>
-                    <button className="btn btn-primary btn-sm">
+                    <button
+                      onClick={(e) => e.stopPropagation()}
+                      className="btn btn-default btn-sm"
+                    >
+                      查看画面
+                    </button>
+                    <button
+                      onClick={(e) => e.stopPropagation()}
+                      className="btn btn-primary btn-sm"
+                    >
                       实时监控
                     </button>
                   </div>
@@ -288,32 +322,36 @@ const DroneInspection = () => {
                     </td>
                     <td className="text-neutral-600">{record.lineName}</td>
                     <td className="text-neutral-600">{record.towerNo}号塔</td>
-                    <td className="text-neutral-600">{record.location}</td>
+                    <td className="text-neutral-600">{record.equipment}</td>
                     <td>
                       <span className="text-danger-600 font-medium">
-                        {record.maxTemp}°C
+                        {record.maxTemperature}°C
                       </span>
                     </td>
-                    <td className="text-neutral-500">{record.minTemp}°C</td>
+                    <td className="text-neutral-500">
+                      {record.minTemperature}°C
+                    </td>
                     <td>
-                      {record.tempDiff > 10 ? (
+                      {record.temperatureDifference > 10 ? (
                         <span className="text-danger-600 font-medium">
-                          {record.tempDiff}°C
+                          {record.temperatureDifference}°C
                         </span>
                       ) : (
                         <span className="text-neutral-600">
-                          {record.tempDiff}°C
+                          {record.temperatureDifference}°C
                         </span>
                       )}
                     </td>
                     <td>
-                      {record.isAbnormal ? (
-                        <span className="status-tag danger">异常</span>
+                      {record.level !== "normal" ? (
+                        <span className="status-tag danger">
+                          {record.anomalyType || "异常"}
+                        </span>
                       ) : (
                         <span className="status-tag success">正常</span>
                       )}
                     </td>
-                    <td className="text-neutral-500">{record.checkTime}</td>
+                    <td className="text-neutral-500">{record.detectionTime}</td>
                   </tr>
                 ))}
               </tbody>
@@ -332,7 +370,7 @@ const DroneInspection = () => {
               <div className="aspect-video bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden">
                 <ImageIcon className="w-12 h-12 text-neutral-300" />
                 <div className="absolute inset-0 flex items-end justify-end p-3">
-                  {detection.hasDefect ? (
+                  {detection.defectCount > 0 ? (
                     <span className="status-tag danger">检测到缺陷</span>
                   ) : (
                     <span className="status-tag success">状态良好</span>
@@ -353,7 +391,9 @@ const DroneInspection = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-neutral-500">检测数量</span>
-                  <span className="text-neutral-700">{detection.totalCount}片</span>
+                  <span className="text-neutral-700">
+                    {detection.totalCount}片
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-neutral-500">缺陷数量</span>
@@ -369,7 +409,9 @@ const DroneInspection = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-neutral-500">检测时间</span>
-                  <span className="text-neutral-500">{detection.checkTime}</span>
+                  <span className="text-neutral-500">
+                    {detection.detectionTime}
+                  </span>
                 </div>
               </div>
             </div>
@@ -388,19 +430,7 @@ const DroneInspection = () => {
                 onClick={() => setSelectedMission(null)}
                 className="p-1.5 rounded hover:bg-neutral-100 text-neutral-500 transition-colors"
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -414,21 +444,19 @@ const DroneInspection = () => {
                   </div>
                   <span
                     className={`status-tag ${
-                      statusMap[selectedMission.status]?.className
+                      statusMap[selectedMission.status]?.className || "default"
                     }`}
                   >
-                    {statusMap[selectedMission.status]?.label}
+                    {statusMap[selectedMission.status]?.label || "待执行"}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`status-tag ${
-                      typeMap[selectedMission.missionType]?.className
-                    }`}
-                  >
-                    {typeMap[selectedMission.missionType]?.label}
-                  </span>
-                </div>
+                <span
+                  className={`status-tag ${
+                    getMissionType(selectedMission.missionName).className
+                  }`}
+                >
+                  {getMissionType(selectedMission.missionName).label}
+                </span>
               </div>
 
               <div className="space-y-4">
@@ -452,13 +480,13 @@ const DroneInspection = () => {
                     <div>
                       <span className="text-neutral-500">操作员</span>
                       <p className="text-neutral-700 mt-0.5">
-                        {selectedMission.operator}
+                        {selectedMission.pilot}
                       </p>
                     </div>
                     <div>
                       <span className="text-neutral-500">计划日期</span>
                       <p className="text-neutral-700 mt-0.5">
-                        {selectedMission.scheduledDate}
+                        {selectedMission.flightDate}
                       </p>
                     </div>
                     <div>
@@ -473,17 +501,54 @@ const DroneInspection = () => {
                         {selectedMission.photoCount} 张
                       </p>
                     </div>
+                    <div>
+                      <span className="text-neutral-500">飞行距离</span>
+                      <p className="text-neutral-700 mt-0.5">
+                        {selectedMission.distance} km
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-neutral-500">拍摄视频</span>
+                      <p className="text-neutral-700 mt-0.5">
+                        {selectedMission.videoCount} 段
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-neutral-500">起始杆塔</span>
+                      <p className="text-neutral-700 mt-0.5">
+                        {selectedMission.startTower} 号
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-neutral-500">终止杆塔</span>
+                      <p className="text-neutral-700 mt-0.5">
+                        {selectedMission.endTower} 号
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="p-4 rounded-lg bg-neutral-50">
-                  <h5 className="text-sm font-medium text-neutral-700 mb-2">
-                    任务描述
-                  </h5>
-                  <p className="text-sm text-neutral-600">
-                    {selectedMission.description}
-                  </p>
-                </div>
+                {selectedMission.weather && (
+                  <div className="p-4 rounded-lg bg-neutral-50">
+                    <h5 className="text-sm font-medium text-neutral-700 mb-3">
+                      气象条件
+                    </h5>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-neutral-500">天气</span>
+                        <p className="text-neutral-700 mt-0.5">
+                          {selectedMission.weather}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-neutral-500">风速</span>
+                        <p className="text-neutral-700 mt-0.5">
+                          {selectedMission.windSpeed} m/s
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <button className="btn btn-primary w-full">查看航迹</button>

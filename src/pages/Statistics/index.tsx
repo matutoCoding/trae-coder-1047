@@ -9,7 +9,6 @@ import {
   BarChart3,
   PieChart as PieChartIcon,
   LineChart,
-  ChevronDown,
 } from "lucide-react";
 import {
   AreaChart,
@@ -19,60 +18,127 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart as ReLineChart,
-  Line,
-  XAxis,
-  YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   Legend,
+  XAxis,
+  YAxis,
 } from "recharts";
 import {
   channelHazards,
   icingMonitors,
   gallopingMonitors,
   defectTrendData,
-  defectsByLine,
   defectLevelDistribution,
-  transmissionLines,
+  lineDefectData,
   defects,
+  transmissionLines,
 } from "@/data/mock";
 
 const Statistics = () => {
   const [timeRange, setTimeRange] = useState("year");
 
-  const lineDefectData = transmissionLines.map((line) => {
-    const lineDefects = defects.filter((d) => d.lineId === line.id);
-    return {
-      name: line.lineName.replace("kV", "kV\n"),
-      总缺陷: lineDefects.length,
-      已处理: lineDefects.filter((d) => d.status === "handled" || d.status === "closed").length,
-      待处理: lineDefects.filter((d) => d.status === "pending" || d.status === "processing").length,
-    };
+  const lineDefectChartData = transmissionLines
+    .map((line) => {
+      const lineDefects = defects.filter((d) => d.lineId === line.id);
+      if (lineDefects.length === 0) {
+        const existing = lineDefectData.find(
+          (ld) => line.lineName.includes(ld.line.replace("线", ""))
+        );
+        if (existing) {
+          return {
+            name: line.lineName,
+            紧急: existing.critical,
+            重大: existing.major,
+            一般: existing.minor,
+            其他: existing.general,
+          };
+        }
+      }
+      return {
+        name: line.lineName,
+        紧急: lineDefects.filter((d) => d.level === "critical").length,
+        重大: lineDefects.filter((d) => d.level === "major").length,
+        一般: lineDefects.filter((d) => d.level === "minor").length,
+        其他: lineDefects.filter((d) => d.level === "general").length,
+      };
+    })
+    .filter((d) => d.紧急 + d.重大 + d.一般 + d.其他 > 0);
+
+  const trendData = defectTrendData.map((item) => ({
+    month: item.month,
+    发现数量: item.count,
+    消除数量: item.handled,
+  }));
+
+  const levelData = defectLevelDistribution.map((item) => ({
+    name: item.name,
+    value: item.value,
+    color: item.color,
+  }));
+
+  const hazardTypeMap: Record<string, number> = {};
+  channelHazards.forEach((h) => {
+    const key = h.hazardType || "其他隐患";
+    hazardTypeMap[key] = (hazardTypeMap[key] || 0) + 1;
   });
+  const hazardTypeData = Object.entries(hazardTypeMap).map(([name, value]) => ({
+    name,
+    value,
+  }));
 
-  const levelData = defectLevelDistribution.map((item) => {
-    const colorMap: Record<string, string> = {
-      "紧急缺陷": "#ff4d4f",
-      "重大缺陷": "#fa8c16",
-      "一般缺陷": "#faad14",
-      "其他缺陷": "#52c41a",
-    };
-    return {
-      ...item,
-      color: colorMap[item.name] || "#1677ff",
-    };
-  });
+  const COLORS = ["#1677ff", "#52c41a", "#fa8c16", "#ff4d4f", "#722ed1"];
 
-  const hazardTypeData = [
-    { name: "树障", value: channelHazards.filter((h) => h.hazardType === "tree").length },
-    { name: "建筑物", value: channelHazards.filter((h) => h.hazardType === "building").length },
-    { name: "交叉跨越", value: channelHazards.filter((h) => h.hazardType === "crossing").length },
-    { name: "山体滑坡", value: channelHazards.filter((h) => h.hazardType === "landslide").length },
-  ];
+  const getHazardLevelLabel = (level: string) => {
+    switch (level) {
+      case "high":
+        return "重大";
+      case "medium":
+        return "一般";
+      case "low":
+        return "轻微";
+      default:
+        return "轻微";
+    }
+  };
 
-  const COLORS = ["#1677ff", "#52c41a", "#fa8c16", "#ff4d4f"];
+  const getHazardLevelClass = (level: string) => {
+    switch (level) {
+      case "high":
+        return "danger";
+      case "medium":
+        return "warning";
+      default:
+        return "default";
+    }
+  };
+
+  const getHazardStatusLabel = (status: string) => {
+    switch (status) {
+      case "pending":
+        return "待处理";
+      case "processing":
+        return "处理中";
+      case "resolved":
+        return "已消除";
+      default:
+        return "待处理";
+    }
+  };
+
+  const getHazardStatusClass = (status: string) => {
+    switch (status) {
+      case "pending":
+        return "warning";
+      case "processing":
+        return "info";
+      case "resolved":
+        return "success";
+      default:
+        return "warning";
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -159,7 +225,7 @@ const Statistics = () => {
           </div>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={defectTrendData}>
+              <AreaChart data={trendData}>
                 <defs>
                   <linearGradient id="colorDefect" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#1677ff" stopOpacity={0.3} />
@@ -177,6 +243,7 @@ const Statistics = () => {
                     boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                   }}
                 />
+                <Legend />
                 <Area
                   type="monotone"
                   dataKey="发现数量"
@@ -249,7 +316,7 @@ const Statistics = () => {
         </div>
         <div className="h-[320px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={lineDefectData}>
+            <BarChart data={lineDefectChartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="name" stroke="#8c8c8c" fontSize={11} />
               <YAxis stroke="#8c8c8c" fontSize={12} />
@@ -262,9 +329,10 @@ const Statistics = () => {
                 }}
               />
               <Legend />
-              <Bar dataKey="总缺陷" fill="#1677ff" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="已处理" fill="#52c41a" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="待处理" fill="#fa8c16" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="紧急" fill="#ff4d4f" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="重大" fill="#fa8c16" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="一般" fill="#faad14" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="其他" fill="#52c41a" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -321,11 +389,25 @@ const Statistics = () => {
             <Snowflake className="w-5 h-5 text-primary-500" />
             覆冰舞动监测
           </h4>
-          <div className="space-y-4">
-            {icingMonitors.slice(0, 3).map((monitor) => {
+          <div className="space-y-3">
+            {icingMonitors.map((monitor) => {
               const galloping = gallopingMonitors.find(
-                (g) => g.lineId === monitor.lineId
+                (g) => g.lineId === monitor.lineId && g.towerNo === monitor.towerNo
               );
+              const thickness = monitor.icingThickness;
+              let levelLabel = "正常";
+              let levelClass = "success";
+              if (thickness >= 10) {
+                levelLabel = "严重";
+                levelClass = "danger";
+              } else if (thickness >= 5) {
+                levelLabel = "注意";
+                levelClass = "warning";
+              } else if (thickness > 0) {
+                levelLabel = "轻微";
+                levelClass = "warning";
+              }
+
               return (
                 <div
                   key={monitor.id}
@@ -333,29 +415,17 @@ const Statistics = () => {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-neutral-800">
-                      {monitor.lineName}
+                      {monitor.lineName} {monitor.towerNo}号塔
                     </span>
-                    <span
-                      className={`status-tag ${
-                        monitor.iceThickness > 10
-                          ? "danger"
-                          : monitor.iceThickness > 5
-                          ? "warning"
-                          : "success"
-                      }`}
-                    >
-                      {monitor.iceThickness > 10
-                        ? "严重"
-                        : monitor.iceThickness > 5
-                        ? "注意"
-                        : "正常"}
+                    <span className={`status-tag ${levelClass}`}>
+                      {levelLabel}
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs">
                     <div>
                       <span className="text-neutral-500">覆冰厚度</span>
                       <p className="text-neutral-700 font-medium">
-                        {monitor.iceThickness} mm
+                        {thickness} mm
                       </p>
                     </div>
                     <div>
@@ -371,6 +441,22 @@ const Statistics = () => {
                       </p>
                     </div>
                   </div>
+                  {galloping && (
+                    <div className="grid grid-cols-2 gap-2 text-xs mt-2 pt-2 border-t border-neutral-200/50">
+                      <div>
+                        <span className="text-neutral-500">舞动幅值</span>
+                        <p className="text-neutral-700 font-medium">
+                          {galloping.amplitude} m
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-neutral-500">舞动频率</span>
+                        <p className="text-neutral-700 font-medium">
+                          {galloping.frequency} Hz
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -405,26 +491,30 @@ const Statistics = () => {
                     {hazard.id}
                   </td>
                   <td className="text-neutral-600">{hazard.lineName}</td>
-                  <td className="text-neutral-600">{hazard.hazardTypeName}</td>
-                  <td className="text-neutral-500">{hazard.location}</td>
+                  <td className="text-neutral-600">
+                    {hazard.hazardType || "其他隐患"}
+                  </td>
+                  <td className="text-neutral-500">
+                    {hazard.location || "-"}
+                  </td>
                   <td>
-                    {hazard.level === "high" ? (
-                      <span className="status-tag danger">重大</span>
-                    ) : hazard.level === "medium" ? (
-                      <span className="status-tag warning">一般</span>
-                    ) : (
-                      <span className="status-tag default">轻微</span>
-                    )}
+                    <span
+                      className={`status-tag ${getHazardLevelClass(
+                        hazard.hazardLevel
+                      )}`}
+                    >
+                      {getHazardLevelLabel(hazard.hazardLevel)}
+                    </span>
                   </td>
                   <td className="text-neutral-500">{hazard.foundDate}</td>
                   <td>
-                    {hazard.status === "pending" ? (
-                      <span className="status-tag warning">待处理</span>
-                    ) : hazard.status === "processing" ? (
-                      <span className="status-tag info">处理中</span>
-                    ) : (
-                      <span className="status-tag success">已消除</span>
-                    )}
+                    <span
+                      className={`status-tag ${getHazardStatusClass(
+                        hazard.status
+                      )}`}
+                    >
+                      {getHazardStatusLabel(hazard.status)}
+                    </span>
                   </td>
                 </tr>
               ))}

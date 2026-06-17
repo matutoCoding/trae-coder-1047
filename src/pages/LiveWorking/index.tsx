@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   Search,
   Plus,
-  Filter,
   ChevronDown,
   FileCheck,
   Calendar,
@@ -14,40 +13,37 @@ import {
   Zap,
   ArrowRight,
   FileText,
-  Eye,
 } from "lucide-react";
-import { liveWorkingTickets } from "@/data/mock";
+import { liveWorkingTickets, workRecords } from "@/data/mock";
 import type { LiveWorkingTicket } from "@/data/types";
 
-const statusMap = {
-  pending_approval: { label: "待审批", className: "warning", icon: Clock },
+const statusMap: Record<string, { label: string; className: string; icon: any }> = {
+  draft: { label: "草稿", className: "default", icon: Clock },
   approved: { label: "已批准", className: "info", icon: CheckCircle },
   in_progress: { label: "作业中", className: "primary", icon: Zap },
   completed: { label: "已完成", className: "success", icon: CheckCircle },
   cancelled: { label: "已取消", className: "danger", icon: AlertCircle },
-  rejected: { label: "已驳回", className: "danger", icon: AlertCircle },
 };
 
-const typeMap = {
-  maintenance: { label: "带电检修", className: "info" },
-  testing: { label: "带电测试", className: "success" },
-  repair: { label: "带电抢修", className: "danger" },
-  installation: { label: "带电安装", className: "warning" },
+const dangerLevelMap: Record<string, { label: string; className: string }> = {
+  low: { label: "低风险", className: "success" },
+  medium: { label: "中风险", className: "warning" },
+  high: { label: "高风险", className: "warning" },
+  extreme: { label: "极高风险", className: "danger" },
 };
 
 const LiveWorking = () => {
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [selectedTicket, setSelectedTicket] =
-    useState<LiveWorkingTicket | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<LiveWorkingTicket | null>(null);
 
   const filteredTickets = liveWorkingTickets.filter((ticket) => {
     const matchSearch =
       ticket.ticketNo.includes(searchText) ||
       ticket.lineName.includes(searchText) ||
-      ticket.crewLeader.includes(searchText);
-    const matchStatus =
-      statusFilter === "all" || ticket.status === statusFilter;
+      ticket.workLeader.includes(searchText) ||
+      ticket.workType.includes(searchText);
+    const matchStatus = statusFilter === "all" || ticket.status === statusFilter;
     return matchSearch && matchStatus;
   });
 
@@ -55,9 +51,20 @@ const LiveWorking = () => {
     setSelectedTicket(ticket);
   };
 
+  const getCrewMembers = (ticket: LiveWorkingTicket): string[] => {
+    const record = workRecords.find((r) => r.ticketId === ticket.id);
+    if (record && record.workers.length > 0) return record.workers;
+    const members: string[] = [ticket.workLeader];
+    const names = ["李员工", "王员工", "赵员工", "陈员工", "刘员工", "张员工"];
+    for (let i = 0; i < ticket.workerCount - 1 && i < names.length; i++) {
+      members.push(names[i]);
+    }
+    return members;
+  };
+
   const stats = {
     total: liveWorkingTickets.length,
-    pending: liveWorkingTickets.filter((t) => t.status === "pending_approval").length,
+    pending: liveWorkingTickets.filter((t) => t.status === "draft" || t.status === "approved").length,
     inProgress: liveWorkingTickets.filter((t) => t.status === "in_progress").length,
     completed: liveWorkingTickets.filter((t) => t.status === "completed").length,
   };
@@ -65,7 +72,8 @@ const LiveWorking = () => {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="card p-4 cursor-pointer transition-all hover:shadow-card-hover"
+        <div
+          className="card p-4 cursor-pointer transition-all hover:shadow-card-hover"
           onClick={() => setStatusFilter("all")}
         >
           <div className="flex items-center justify-between">
@@ -79,15 +87,14 @@ const LiveWorking = () => {
           </div>
         </div>
 
-        <div className="card p-4 cursor-pointer transition-all hover:shadow-card-hover"
-          onClick={() => setStatusFilter("pending_approval")}
+        <div
+          className="card p-4 cursor-pointer transition-all hover:shadow-card-hover"
+          onClick={() => setStatusFilter("approved")}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-neutral-500 mb-1">待审批</p>
-              <p className="text-2xl font-bold text-warning-600">
-                {stats.pending}
-              </p>
+              <p className="text-sm text-neutral-500 mb-1">待执行</p>
+              <p className="text-2xl font-bold text-warning-600">{stats.pending}</p>
             </div>
             <div className="w-10 h-10 rounded-lg bg-warning-50 flex items-center justify-center">
               <Clock className="w-5 h-5 text-warning-500" />
@@ -95,31 +102,29 @@ const LiveWorking = () => {
           </div>
         </div>
 
-        <div className="card p-4 cursor-pointer transition-all hover:shadow-card-hover"
+        <div
+          className="card p-4 cursor-pointer transition-all hover:shadow-card-hover"
           onClick={() => setStatusFilter("in_progress")}
         >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-neutral-500 mb-1">作业中</p>
-              <p className="text-2xl font-bold text-info-600">
-                {stats.inProgress}
-              </p>
+              <p className="text-2xl font-bold text-primary-600">{stats.inProgress}</p>
             </div>
-            <div className="w-10 h-10 rounded-lg bg-info-50 flex items-center justify-center">
-              <Zap className="w-5 h-5 text-info-500" />
+            <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center">
+              <Zap className="w-5 h-5 text-primary-500" />
             </div>
           </div>
         </div>
 
-        <div className="card p-4 cursor-pointer transition-all hover:shadow-card-hover"
+        <div
+          className="card p-4 cursor-pointer transition-all hover:shadow-card-hover"
           onClick={() => setStatusFilter("completed")}
         >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-neutral-500 mb-1">已完成</p>
-              <p className="text-2xl font-bold text-success-600">
-                {stats.completed}
-              </p>
+              <p className="text-2xl font-bold text-success-600">{stats.completed}</p>
             </div>
             <div className="w-10 h-10 rounded-lg bg-success-50 flex items-center justify-center">
               <CheckCircle className="w-5 h-5 text-success-500" />
@@ -135,7 +140,7 @@ const LiveWorking = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
               <input
                 type="text"
-                placeholder="搜索作业票编号、线路、负责人..."
+                placeholder="搜索作业票编号、线路、负责人、工作类型..."
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 className="w-full h-10 pl-10 pr-4 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition-all"
@@ -150,12 +155,11 @@ const LiveWorking = () => {
               className="h-10 px-3 rounded-lg border border-neutral-200 text-sm bg-white focus:outline-none focus:border-primary-400"
             >
               <option value="all">全部状态</option>
-              <option value="pending_approval">待审批</option>
+              <option value="draft">草稿</option>
               <option value="approved">已批准</option>
               <option value="in_progress">作业中</option>
               <option value="completed">已完成</option>
               <option value="cancelled">已取消</option>
-              <option value="rejected">已驳回</option>
             </select>
 
             <button className="btn btn-primary flex items-center gap-2">
@@ -178,37 +182,36 @@ const LiveWorking = () => {
                 <th>工作负责人</th>
                 <th>工作班人员</th>
                 <th>计划工作时间</th>
+                <th>风险等级</th>
                 <th>状态</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
               {filteredTickets.map((ticket) => {
-                const statusInfo = statusMap[ticket.status];
-                const typeInfo = typeMap[ticket.workType];
+                const statusInfo = statusMap[ticket.status] || statusMap.draft;
+                const dangerInfo =
+                  dangerLevelMap[ticket.dangerLevel] || dangerLevelMap.low;
 
                 return (
                   <tr key={ticket.id}>
                     <td className="font-medium text-neutral-700 font-mono">
                       {ticket.ticketNo}
                     </td>
-                    <td className="text-neutral-600">{ticket.workTask}</td>
+                    <td className="text-neutral-600">{ticket.workContent}</td>
                     <td className="text-neutral-600">{ticket.lineName}</td>
+                    <td className="text-neutral-600">{ticket.workType}</td>
+                    <td className="text-neutral-600">{ticket.workLeader}</td>
+                    <td className="text-neutral-500">{ticket.workerCount}人</td>
+                    <td className="text-neutral-500">{ticket.planDate}</td>
                     <td>
-                      <span className={`status-tag ${typeInfo?.className}`}>
-                        {typeInfo?.label}
+                      <span className={`status-tag ${dangerInfo.className}`}>
+                        {dangerInfo.label}
                       </span>
                     </td>
-                    <td className="text-neutral-600">{ticket.crewLeader}</td>
-                    <td className="text-neutral-500">
-                      {ticket.crewMembers.length}人
-                    </td>
-                    <td className="text-neutral-500">
-                      {ticket.planStartTime.split(" ")[0]}
-                    </td>
                     <td>
-                      <span className={`status-tag ${statusInfo?.className}`}>
-                        {statusInfo?.label}
+                      <span className={`status-tag ${statusInfo.className}`}>
+                        {statusInfo.label}
                       </span>
                     </td>
                     <td>
@@ -260,7 +263,7 @@ const LiveWorking = () => {
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <h4 className="text-lg font-semibold text-neutral-800">
-                      {selectedTicket.workTask}
+                      {selectedTicket.workContent}
                     </h4>
                     <p className="text-sm text-neutral-500 mt-1">
                       {selectedTicket.ticketNo}
@@ -268,19 +271,26 @@ const LiveWorking = () => {
                   </div>
                   <span
                     className={`status-tag ${
-                      statusMap[selectedTicket.status]?.className
+                      statusMap[selectedTicket.status]?.className || "default"
                     }`}
                   >
-                    {statusMap[selectedTicket.status]?.label}
+                    {statusMap[selectedTicket.status]?.label || "草稿"}
                   </span>
                 </div>
-                <span
-                  className={`status-tag ${
-                    typeMap[selectedTicket.workType]?.className
-                  }`}
-                >
-                  {typeMap[selectedTicket.workType]?.label}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="status-tag info">
+                    {selectedTicket.workType}
+                  </span>
+                  <span
+                    className={`status-tag ${
+                      dangerLevelMap[selectedTicket.dangerLevel]?.className ||
+                      "default"
+                    }`}
+                  >
+                    {dangerLevelMap[selectedTicket.dangerLevel]?.label ||
+                      "低风险"}
+                  </span>
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -296,23 +306,37 @@ const LiveWorking = () => {
                       </p>
                     </div>
                     <div>
-                      <span className="text-neutral-500">工作地点</span>
+                      <span className="text-neutral-500">工作类型</span>
                       <p className="text-neutral-700 mt-0.5">
-                        {selectedTicket.workLocation}
+                        {selectedTicket.workType}
                       </p>
                     </div>
                     <div>
                       <span className="text-neutral-500">工作负责人</span>
                       <p className="text-neutral-700 mt-0.5">
-                        {selectedTicket.crewLeader}
+                        {selectedTicket.workLeader}
                       </p>
                     </div>
                     <div>
                       <span className="text-neutral-500">工作班人数</span>
                       <p className="text-neutral-700 mt-0.5">
-                        {selectedTicket.crewMembers.length} 人
+                        {selectedTicket.workerCount} 人
                       </p>
                     </div>
+                    <div>
+                      <span className="text-neutral-500">创建时间</span>
+                      <p className="text-neutral-700 mt-0.5">
+                        {selectedTicket.createdAt}
+                      </p>
+                    </div>
+                    {selectedTicket.approver && (
+                      <div>
+                        <span className="text-neutral-500">审批人</span>
+                        <p className="text-neutral-700 mt-0.5">
+                          {selectedTicket.approver}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -322,30 +346,16 @@ const LiveWorking = () => {
                   </h5>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-neutral-500">计划开始</span>
+                      <span className="text-neutral-500">计划日期</span>
                       <span className="text-neutral-700">
-                        {selectedTicket.planStartTime}
+                        {selectedTicket.planDate}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-neutral-500">计划结束</span>
-                      <span className="text-neutral-700">
-                        {selectedTicket.planEndTime}
-                      </span>
-                    </div>
-                    {selectedTicket.actualStartTime && (
+                    {selectedTicket.approveTime && (
                       <div className="flex justify-between">
-                        <span className="text-neutral-500">实际开始</span>
+                        <span className="text-neutral-500">批准时间</span>
                         <span className="text-neutral-700">
-                          {selectedTicket.actualStartTime}
-                        </span>
-                      </div>
-                    )}
-                    {selectedTicket.actualEndTime && (
-                      <div className="flex justify-between">
-                        <span className="text-neutral-500">实际结束</span>
-                        <span className="text-neutral-700">
-                          {selectedTicket.actualEndTime}
+                          {selectedTicket.approveTime}
                         </span>
                       </div>
                     )}
@@ -357,7 +367,7 @@ const LiveWorking = () => {
                     工作班人员
                   </h5>
                   <div className="flex flex-wrap gap-2">
-                    {selectedTicket.crewMembers.map((member, index) => (
+                    {getCrewMembers(selectedTicket).map((member, index) => (
                       <span
                         key={index}
                         className="px-3 py-1 bg-white rounded-full text-sm text-neutral-600 border border-neutral-200"
@@ -370,11 +380,35 @@ const LiveWorking = () => {
 
                 <div className="p-4 rounded-lg bg-neutral-50">
                   <h5 className="text-sm font-medium text-neutral-700 mb-2">
-                    安全措施
+                    工作内容
                   </h5>
                   <p className="text-sm text-neutral-600">
-                    {selectedTicket.safetyMeasures}
+                    {selectedTicket.workContent}
                   </p>
+                </div>
+
+                <div className="p-4 rounded-lg bg-neutral-50">
+                  <h5 className="text-sm font-medium text-neutral-700 mb-2">
+                    安全措施
+                  </h5>
+                  {selectedTicket.safetyMeasures &&
+                  selectedTicket.safetyMeasures.length > 0 ? (
+                    <ul className="space-y-2">
+                      {selectedTicket.safetyMeasures.map((measure, index) => (
+                        <li
+                          key={index}
+                          className="flex items-start gap-2 text-sm text-neutral-600"
+                        >
+                          <span className="w-5 h-5 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
+                            {index + 1}
+                          </span>
+                          {measure}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-neutral-400">暂无安全措施</p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
